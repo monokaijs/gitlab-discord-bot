@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "target": "es6",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "paths": {
+      "@src": [
+        "src"
+      ],
+      "@src/*": [
+        "src/*"
+      ]
+    },
+    "module": "commonjs",
+    "skipLibCheck": true
+  },
+  "include": [
+    "./src/**/*.ts",
+    "./src/types/**/*.d.ts",
+  ],
+  "exclude": [
+    "./dist",
+    "./node_modules"
+  ]
+}
