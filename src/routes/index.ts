@@ -4,5 +4,5 @@ import {webhookRoute} from "@/routes/webhook.route.ts";
 
 export const mainRouter = express.Router();
 
-mainRouter.get('/api', apiRoute);
-mainRouter.get('/webhook', webhookRoute);
+mainRouter.use('/api', apiRoute);
+mainRouter.use('/webhook', webhookRoute);

@@ -3,6 +3,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import {createServer as createViteServer} from "vite";
 import {mainRouter} from "@/routes";
+import formatterMiddleware from "@/middlewares/formatter.middleware.ts";
 
 class WebService {
   async register() {
@@ -12,6 +13,7 @@ class WebService {
     })
     app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({extended: true}));
+    app.use(formatterMiddleware);
     app.use(mainRouter);
     app.use(viteServer.middlewares);
 
