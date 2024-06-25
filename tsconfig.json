@@ -9,15 +9,17 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "paths": {
-      "@src": [
-        "src"
-      ],
-      "@src/*": [
-        "src/*"
+      "@/*": [
+        "./src/*"
       ]
     },
     "module": "commonjs",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
   },
   "include": [
     "./src/**/*.ts",
@@ -26,5 +28,6 @@
   "exclude": [
     "./dist",
     "./node_modules"
-  ]
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

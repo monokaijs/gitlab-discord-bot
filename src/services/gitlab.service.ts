@@ -1,5 +1,5 @@
 import {Gitlab} from "@gitbeaker/core";
-import {requesterFn} from "@src/utils/gitlabRequestor";
+import {requesterFn} from "@/utils/gitlabRequestor";
 import * as process from "process";
 
 class GitlabService {
