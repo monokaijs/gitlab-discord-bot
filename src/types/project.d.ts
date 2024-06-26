@@ -1,4 +1,5 @@
 interface ProjectBindingDto {
   gitlabId: string;
-  chatId: string;
+  channel: any;
+  gitlab: any;
 }

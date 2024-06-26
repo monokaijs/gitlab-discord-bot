@@ -13,6 +13,18 @@ class ApiService {
     return this.callApi('GET', '/channels');
   }
 
+  getGitlabProjects(query: string) {
+    return this.callApi('GET', `/gitlab-projects?name=${query}`);
+  }
+
+  bindGitlabProjects(payload: any) {
+    return this.callApi('POST', `/bind-project`, payload);
+  }
+  
+  unbindGitlabProjects(payload: any) {
+    return this.callApi('POST', `/unbind-project`, payload);
+  }
+
   async callApi(method: string, endpoint: string, data: any = {}, config?: AxiosRequestConfig, ignoreAuth = false) {
     try {
       const r = await this.axiosInstance({

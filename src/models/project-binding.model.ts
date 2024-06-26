@@ -12,9 +12,8 @@ const schema = new mongoose.Schema<ProjectBindingDto>({
   gitlabId: {
     type: String,
   },
-  chatId: {
-    type: String,
-  }
+  channel: Object,
+  gitlab: Object,
 });
 
 export const ProjectBinding = model<ProjectBindingDto, ProjectBindingModel>('ProjectBinding', schema);
