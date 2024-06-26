@@ -106,9 +106,20 @@ class WebhookService {
     event: GitLabPipelineEvent,
     channelId: string
   ) {
-    const title = `${event.user.name} triggered deployment in [${event.project.name}](<${event.project.web_url}>)`;
+    const title = `\n${event.user.name} triggered deployment in [${event.project.name}](<${event.project.web_url}>)`;
     const builds = event.builds.map((build) => {
-      return `\n ${build.status === "success" ? "🟢" : "🔴"} ${build.stage}: ${
+      const status = {
+        created:   "🟠",
+        pending:   "🔵",
+        running:   "🟡",
+        success:   "🟢",
+        failed:    "🔴",
+        canceled:  "🟤",
+        skipped:   "🟣",
+        manual:    "⚫",
+        scheduled: "📅",
+      }
+      return `\n ${status[build.status]} ${build.stage}: ${
         build.name
       }`;
     });
