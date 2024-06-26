@@ -11,6 +11,7 @@ import {
   GitLabTagPushEvent,
 } from "@/types/gitlab";
 import moment from "moment";
+import gitlabService from "./gitlab.service";
 
 class WebhookService {
   async gitlabAction(event: GitLabEvent) {
@@ -107,22 +108,36 @@ class WebhookService {
     channelId: string
   ) {
     const title = `\n${event.user.name} triggered deployment in [${event.project.name}](<${event.project.web_url}>)`;
-    const builds = event.builds.map((build) => {
-      const status = {
-        created:   "🟠",
-        pending:   "🔵",
-        running:   "🟡",
-        success:   "🟢",
-        failed:    "🔴",
-        canceled:  "🟤",
-        skipped:   "🟣",
-        manual:    "⚫",
-        scheduled: "📅",
-      }
-      return `\n ${status[build.status]} ${build.stage}: ${
-        build.name
-      }`;
-    });
+    const builds = await Promise.all(
+      event.builds.map(async (build) => {
+        const status = {
+          created: "🟠",
+          pending: "🔵",
+          running: "🟡",
+          success: "🟢",
+          failed: "🔴",
+          canceled: "🟤",
+          skipped: "🟣",
+          manual: "⚫",
+          scheduled: "📅",
+        };
+
+        let content = `\n ${status[build.status]} ${build.stage}: ${build.name}`
+
+        if (build.status === "failed") {
+          const logs = await gitlabService.getLastJobLogLines(
+            event.project.id.toString(),
+            event.object_attributes.id,
+            build.id,
+            20
+          );
+
+          content += `\n\n ${logs}`
+        }
+
+        return content;
+      })
+    );
     const content = title + "```" + builds.join("\n") + "```";
     await discordService.sendMessageToDiscord(content, "Deployment", channelId);
   }
