@@ -1,17 +1,20 @@
-import {Gitlab} from "@gitbeaker/core";
-import {requesterFn} from "@/utils/gitlabRequestor";
+import { Gitlab } from "@gitbeaker/core";
+import { requesterFn } from "@/utils/gitlabRequestor";
 import * as process from "process";
 import { ProjectBinding } from "@/models/project-binding.model";
+import discordService from "./discord.service";
+import { GitLabObjectKind } from "@/types/gitlab";
+import { TopicBinding } from "@/models/topics-binding.modal";
 
 class GitlabService {
   instance = new Gitlab({
-    host: 'https://northstudio.dev',
+    host: "https://northstudio.dev",
     token: process.env.GITLAB_TOKEN,
-    requesterFn
+    requesterFn,
   });
 
-  async getProjects(projectName: string = "", options?: any){
-    return this.instance.Projects.search(projectName, options)
+  async getProjects(projectName: string = "", options?: any) {
+    return this.instance.Projects.search(projectName, options);
   }
 
   getProject(projectId: string) {
@@ -19,7 +22,7 @@ class GitlabService {
   }
 
   async bindProject(projectId: string, channel: any) {
-    const hookUrl = process.env.DEPLOYMENT_URL + '/webhooks/gitlab';
+    const hookUrl = process.env.DEPLOYMENT_URL + "/webhooks/gitlab";
     try {
       await this.instance.ProjectHooks.add(projectId, hookUrl, {
         pushEvents: true,
@@ -35,34 +38,39 @@ class GitlabService {
         releasesEvents: true,
         mergeRequestsEvents: true,
         enableSslVerification: false,
-      })
+      });
 
       const gitlabProject = await this.instance.Projects.show(projectId);
-  
+
       await ProjectBinding.create({
         channel: channel,
         gitlabId: projectId,
-        gitlab: gitlabProject
+        gitlab: gitlabProject,
       });
+
+      await discordService.bindTopics(projectId, channel.id, [
+        GitLabObjectKind.Push,
+        GitLabObjectKind.MergeRequest,
+      ]);
 
       return {
         data: {
           success: true,
         },
-        message: "Success"
-      }
+        message: "Success",
+      };
     } catch (error) {
       return {
         data: {
           success: false,
         },
         status: 400,
-        message: error.message
-      }
+        message: error.message,
+      };
     }
   }
 
-  async unbindProject(projectId: string){
+  async unbindProject(projectId: string) {
     try {
       const hooks = await this.instance.ProjectHooks.all(projectId);
       for (const hook of hooks) {
@@ -70,53 +78,67 @@ class GitlabService {
         await this.instance.ProjectHooks.remove(projectId, hookId);
       }
 
-      await ProjectBinding.deleteMany({gitlabId: projectId})
+      await ProjectBinding.deleteMany({ gitlabId: projectId });
+      await TopicBinding.deleteMany({ gitlabId: projectId });
 
       return {
         data: {
           success: true,
         },
-        message: "Success"
-      }
+        message: "Success",
+      };
     } catch (error) {
       return {
         data: {
           success: false,
         },
         status: 400,
-        message: error.message
-      }
+        message: error.message,
+      };
     }
   }
 
   async getLastLogLines(projectId: string, pipelineId: number, limitLines = 5) {
     const jobs = await this.instance.Jobs.all(projectId, {
       pipelineId: pipelineId,
-      status: 'running',
+      status: "running",
     });
     if (jobs) {
       // const ongoingJob = jobs.
-      const runningJobs = jobs.filter(job => job.status === 'running').sort((a, b) => b.id - a.id);
+      const runningJobs = jobs
+        .filter((job) => job.status === "running")
+        .sort((a, b) => b.id - a.id);
       const lastJob = runningJobs.pop();
       const log = await this.instance.Jobs.showLog(projectId, lastJob.id);
-      const logLines = log.split('\n');
+      const logLines = log.split("\n");
       const ansiEscapePattern = /\x1B\[[0-9;]*[JKmsu]/g;
       if (logLines.length < 5) {
-        return logLines.join('\n').replace(ansiEscapePattern, '');
+        return logLines.join("\n").replace(ansiEscapePattern, "");
       } else {
-        return logLines.slice(-limitLines).join('\n').replace(ansiEscapePattern, '');
+        return logLines
+          .slice(-limitLines)
+          .join("\n")
+          .replace(ansiEscapePattern, "");
       }
     } else return "";
   }
 
-  async getLastJobLogLines(projectId: string, pipelineId: number, jobId: number, limitLines = 5) {
+  async getLastJobLogLines(
+    projectId: string,
+    pipelineId: number,
+    jobId: number,
+    limitLines = 5
+  ) {
     const log = await this.instance.Jobs.showLog(projectId, jobId);
-    const logLines = log.split('\n');
+    const logLines = log.split("\n");
     const ansiEscapePattern = /\x1B\[[0-9;]*[JKmsu]/g;
     if (logLines.length < 5) {
-      return logLines.join('\n').replace(ansiEscapePattern, '');
+      return logLines.join("\n").replace(ansiEscapePattern, "");
     } else {
-      return logLines.slice(-limitLines).join('\n').replace(ansiEscapePattern, '');
+      return logLines
+        .slice(-limitLines)
+        .join("\n")
+        .replace(ansiEscapePattern, "");
     }
   }
 }

@@ -5,6 +5,7 @@ export enum GitLabObjectKind {
   Pipeline = "pipeline",
   Note = "note",
   TagPush = "tag_push",
+  Build = "build",
 }
 
 export enum GitLabEventName {
@@ -14,6 +15,7 @@ export enum GitLabEventName {
   Pipeline = "pipeline",
   Note = "note",
   TagPush = "tag_push",
+  Build = "build",
 }
 
 export interface GitLabEvent {
@@ -150,6 +152,7 @@ export interface GitLabPipelineEvent extends GitLabEvent {
     created_at: string;
     finished_at: string;
     duration: number;
+    url?: string;
   };
   builds: any[];
 }

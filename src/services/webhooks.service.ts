@@ -12,6 +12,9 @@ import {
 } from "@/types/gitlab";
 import moment from "moment";
 import gitlabService from "./gitlab.service";
+import ciService from "./ci.service";
+import { IssueBinding } from "@/models/issue-binding.model";
+import { TopicBinding } from "@/models/topics-binding.modal";
 
 class WebhookService {
   async gitlabAction(event: GitLabEvent) {
@@ -36,6 +39,9 @@ class WebhookService {
         break;
       case GitLabObjectKind.Pipeline:
         await this.handlePipelineEvent(event as GitLabPipelineEvent, channelId);
+        break;
+      case GitLabObjectKind.Build:
+        await this.handleBuildEvent(event as any, channelId);
         break;
       // case GitLabObjectKind.Note:
       //   await this.handleNoteEvent(event as GitLabNoteEvent, channelId);
@@ -71,7 +77,17 @@ class WebhookService {
       "```" +
       `[View last commit](<${lastCommitUrl}>)`;
 
-    await discordService.sendMessageToDiscord(content, "Activities", channelId);
+    const topicBinding = await TopicBinding.findOne({
+      gitlabId: event.project.id,
+      channelId: channelId,
+      topicId: GitLabObjectKind.Push,
+    });
+
+    await discordService.sendMessageToThread(
+      content,
+      topicBinding.threadId ?? "Activities",
+      channelId
+    );
   }
 
   private async handleMergeRequestEvent(
@@ -79,27 +95,53 @@ class WebhookService {
     channelId: string
   ) {
     const content = `[Merge request](<${event.object_attributes.url}>) ${event.object_attributes.source_branch} to ${event.object_attributes.target_branch} by ${event.user.name}: ${event.object_attributes.title}`;
-    await discordService.sendMessageToDiscord(
+
+    const topicBinding = await TopicBinding.findOne({
+      gitlabId: event.project.id,
+      channelId: channelId,
+      topicId: GitLabObjectKind.MergeRequest,
+    });
+
+    await discordService.sendMessageToThread(
       content,
-      "Merge requests",
+      topicBinding.threadId ?? "Merge request",
       channelId
     );
   }
 
   private async handleIssueEvent(event: GitLabIssueEvent, channelId: string) {
-    const isClosed = !!event.changes?.closed_at;
-    const content = `Issue event by ${event.user.username}: ${event.object_attributes.description}`;
+    const isReOpen =
+      event?.changes?.closed_at?.previous &&
+      !event?.changes?.closed_at?.current;
+    const isClosed = !!event?.changes?.closed_at?.current;
+    const issueId = event.object_attributes.id;
+    const issueBinding = await IssueBinding.findOne({
+      issueId: issueId,
+    });
+
+    const content = `Issue [#${issueId}](<${event.object_attributes.url}>) - ${event.object_attributes.title}\nIssue event by ${event.user.username}: ${event.object_attributes.description}`;
     if (isClosed) {
-      await discordService.removeThread(
-        channelId,
-        event.object_attributes.title
-      );
+      await discordService.closeThread(channelId, issueBinding.threadId);
+      issueBinding.isClosed = true;
+      await issueBinding.save();
     } else {
-      await discordService.createThread(
-        channelId,
-        event.object_attributes.title,
-        content
-      );
+      if (isReOpen) {
+        await discordService.reOpenThread(channelId, issueBinding.threadId);
+        issueBinding.isClosed = false;
+        await issueBinding.save();
+      } else {
+        const threadTitle = `Issue #${issueId} - ${event.object_attributes.title}`;
+        const thread = await discordService.createThread(
+          channelId,
+          threadTitle,
+          content
+        );
+
+        await IssueBinding.create({
+          issueId: issueId,
+          threadId: thread.id,
+        });
+      }
     }
   }
 
@@ -107,44 +149,19 @@ class WebhookService {
     event: GitLabPipelineEvent,
     channelId: string
   ) {
-    const title = `\n${event.user.name} triggered deployment in [${event.project.name}](<${event.project.web_url}>)`;
-    const builds = await Promise.all(
-      event.builds.map(async (build) => {
-        const status = {
-          created: "🟠",
-          pending: "🔵",
-          running: "🟡",
-          success: "🟢",
-          failed: "🔴",
-          canceled: "🟤",
-          skipped: "🟣",
-          manual: "⚫",
-          scheduled: "📅",
-        };
+    await ciService.pipelineEvent(event);
+  }
 
-        let content = `\n ${status[build.status]} ${build.stage}: ${build.name}`
-
-        if (build.status === "failed") {
-          const logs = await gitlabService.getLastJobLogLines(
-            event.project.id.toString(),
-            event.object_attributes.id,
-            build.id,
-            20
-          );
-
-          content += `\n\n ${logs}`
-        }
-
-        return content;
-      })
-    );
-    const content = title + "```" + builds.join("\n") + "```";
-    await discordService.sendMessageToDiscord(content, "Deployment", channelId);
+  private async handleBuildEvent(
+    event: GitLabPipelineEvent,
+    channelId: string
+  ) {
+    await ciService.jobEvent(event);
   }
 
   // private async handleNoteEvent(event: GitLabNoteEvent, channelId: string) {
   //   const content = `Note event by ${event.user.username}: ${event.object_attributes.note}`;
-  //   await discordService.sendMessageToDiscord(content, "notes", channelId);
+  //   await discordService.sendMessageToThread(content, "notes", channelId);
   // }
 
   // private async handleTagPushEvent(
@@ -152,7 +169,7 @@ class WebhookService {
   //   channelId: string
   // ) {
   //   const content = `Tag Push event by ${event.user_name}: ${event.ref}`;
-  //   await discordService.sendMessageToDiscord(content, "tag-pushes", channelId);
+  //   await discordService.sendMessageToThread(content, "tag-pushes", channelId);
   // }
 }
 
